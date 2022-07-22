@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<body>
+	<style>
+		html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  --size: 15px;
+  --color: #00ff00;
+  color: var(--color);
+  background-color: #000000;
+}
+
+@media (min-height: 425px) {
+  body {
+    --size: 25px;
+  }
+
+  footer {
+    height: 40px;
+    font-size: 1em;
+  }
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+}
+
+header {
+  display: flex;
+  justify-content: space-between;
+  width: calc(var(--size) * 17);
+  font-size: 2em;
+  font-weight: 900;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(15, auto);
+  grid-template-rows: repeat(15, auto);
+  border: var(--size) solid var(--color);
+}
+.tile {
+  position: relative;
+  width: var(--size);
+  height: var(--size);
+}
+.content {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+}
+
+footer {
+  margin-top: 20px;
+  max-width: calc(var(--size) * 17);
+  text-align: center;
+}
+
+footer a:visited {
+  color: inherit;
+}
+
+	</style>
+	<div class="container">
+		<header>
+
+		  <div class="score">0</div>
+		</header>
+		<div class="grid"></div>
+		<footer>Press an arrow key or space to start!
+	  </div>
+	
+	  <script>
+
+
+window.addEventListener("DOMContentLoaded", function (event) {
+  window.focus();
+
+  let snakePositions;
+  let applePosition;
+
+  let startTimestamp;
+  let lastTimestamp;
+  let stepsTaken;
+  let score;
+
+  let inputs;
+
+  let gameStarted = false;
+
+  const width = 15;
+  const height = 15;
+
+  const speed = 200;
+  const color = "#00ff00";
+
+  const grid = document.querySelector(".grid");
+  for (let i = 0; i < width * height; i++) {
+    const content = document.createElement("div");
+    content.setAttribute("class", "content");
+    content.setAttribute("id", i);
+
+    const tile = document.createElement("div");
+    tile.setAttribute("class", "tile");
+    tile.appendChild(content);
+
+    grid.appendChild(tile);
+  }
+
+  const tiles = document.querySelectorAll(".grid .tile .content");
+
+  const containerElement = document.querySelector(".container");
+  const noteElement = document.querySelector("footer");
+
+  const scoreElement = document.querySelector(".score");
+
+  resetGame();
+
+  function resetGame() {
+
+    snakePositions = [168, 169, 170, 171];
+    applePosition = 100;
+
+    startTimestamp = undefined;
+    lastTimestamp = undefined;
+    stepsTaken = -1;
+    score = 0;
+
+    inputs = [];
+
+    scoreElement.innerText = score;
+
+    for (const tile of tiles) setTile(tile);
+
+    setTile(tiles[applePosition], {
+      "background-color": color,
+      "border-radius": "50%"
+    });
+
+    for (const i of snakePositions.slice(1)) {
+      const snakePart = tiles[i];
+      snakePart.style.backgroundColor = color;
+
+      if (i == snakePositions[snakePositions.length - 1])
+        snakePart.style.left = 0;
+      if (i == snakePositions[0]) snakePart.style.right = 0;
+    }
+  }
+
+  window.addEventListener("keydown", function (event) {
+    if (
+      ![
+        "ArrowLeft",
+        "ArrowUp",
+        "ArrowRight",
+        "ArrowDown",
+        " ",
+      ].includes(event.key)
+    )
+      return;
+
+    event.preventDefault();
+
+    if (event.key == " ") {
+      resetGame();
+      startGame();
+      return;
+    }
+
+    if (
+      event.key == "ArrowLeft" &&
+      inputs[inputs.length - 1] != "left" &&
+      headDirection() != "right"
+    ) {
+      inputs.push("left");
+      if (!gameStarted) startGame();
+      return;
+    }
+    if (
+      event.key == "ArrowUp" &&
+      inputs[inputs.length - 1] != "up" &&
+      headDirection() != "down"
+    ) {
+      inputs.push("up");
+      if (!gameStarted) startGame();
+      return;
+    }
+    if (
+      event.key == "ArrowRight" &&
+      inputs[inputs.length - 1] != "right" &&
+      headDirection() != "left"
+    ) {
+      inputs.push("right");
+      if (!gameStarted) startGame();
+      return;
+    }
+    if (
+      event.key == "ArrowDown" &&
+      inputs[inputs.length - 1] != "down" &&
+      headDirection() != "up"
+    ) {
+      inputs.push("down");
+      if (!gameStarted) startGame();
+      return;
+    }
+  });
+
+  function startGame() {
+    gameStarted = true;
+    noteElement.style.opacity = 0;
+    window.requestAnimationFrame(main);
+  }
+
+  function main(timestamp) {
+    try {
+      if (startTimestamp === undefined) startTimestamp = timestamp;
+      const totalElapsedTime = timestamp - startTimestamp;
+      const timeElapsedSinceLastCall = timestamp - lastTimestamp;
+
+      const stepsShouldHaveTaken = Math.floor(totalElapsedTime / speed);
+      const percentageOfStep = (totalElapsedTime % speed) / speed;
+
+      if (stepsTaken != stepsShouldHaveTaken) {
+        stepAndTransition(percentageOfStep);
+
+        const headPosition = snakePositions[snakePositions.length - 1];
+        if (headPosition == applePosition) {
+          score++;
+          scoreElement.innerText = score;
+
+          addNewApple();
+        }
+
+        stepsTaken++;
+      } else {
+        transition(percentageOfStep);
+      }
+
+
+      window.requestAnimationFrame(main);
+    } catch (error) {
+      const pressSpaceToStart = "Press space to reset the game.";
+      noteElement.innerHTML = `${error.message}. ${pressSpaceToStart}`;
+      noteElement.style.opacity = 1;
+      containerElement.style.opacity = 1;
+    }
+
+    lastTimestamp = timestamp;
+  }
+
+  function stepAndTransition(percentageOfStep) {
+    const newHeadPosition = getNextPosition();
+    snakePositions.push(newHeadPosition);
+
+    const previousTail = tiles[snakePositions[0]];
+    setTile(previousTail);
+
+    if (newHeadPosition != applePosition) {
+      snakePositions.shift();
+
+      const tail = tiles[snakePositions[0]];
+      const tailDi = tailDirection();
+      const tailValue = `${100 - percentageOfStep * 100}%`;
+
+      if (tailDi == "right")
+        setTile(tail, {
+          left: 0,
+          width: tailValue,
+          "background-color": color
+        });
+
+      if (tailDi == "left")
+        setTile(tail, {
+          right: 0,
+          width: tailValue,
+          "background-color": color
+        });
+
+      if (tailDi == "down")
+        setTile(tail, {
+          top: 0,
+          height: tailValue,
+          "background-color": color
+        });
+
+      if (tailDi == "up")
+        setTile(tail, {
+          bottom: 0,
+          height: tailValue,
+          "background-color": color
+        });
+    }
+
+    const previousHead = tiles[snakePositions[snakePositions.length - 2]];
+    setTile(previousHead, { "background-color": color });
+
+    const head = tiles[newHeadPosition];
+    const headDi = headDirection();
+    const headValue = `${percentageOfStep * 100}%`;
+
+    if (headDi == "right")
+      setTile(head, {
+        left: 0,
+        width: headValue,
+        "background-color": color,
+        "border-radius": 0
+      });
+
+    if (headDi == "left")
+      setTile(head, {
+        right: 0, 
+        width: headValue,
+        "background-color": color,
+        "border-radius": 0
+      });
+
+    if (headDi == "down")
+      setTile(head, {
+        top: 0, 
+        height: headValue,
+        "background-color": color,
+        "border-radius": 0
+      });
+
+    if (headDi == "up")
+      setTile(head, {
+        bottom: 0, 
+        height: headValue,
+        "background-color": color,
+        "border-radius": 0
+      });
+  }
+
+  function transition(percentageOfStep) {
+    const head = tiles[snakePositions[snakePositions.length - 1]];
+    const headDi = headDirection();
+    const headValue = `${percentageOfStep * 100}%`;
+    if (headDi == "right" || headDi == "left") head.style.width = headValue;
+    if (headDi == "down" || headDi == "up") head.style.height = headValue;
+
+    const tail = tiles[snakePositions[0]];
+    const tailDi = tailDirection();
+    const tailValue = `${100 - percentageOfStep * 100}%`;
+    if (tailDi == "right" || tailDi == "left") tail.style.width = tailValue;
+    if (tailDi == "down" || tailDi == "up") tail.style.height = tailValue;
+  }
+
+  function getNextPosition() {
+    const headPosition = snakePositions[snakePositions.length - 1];
+    const snakeDirection = inputs.shift() || headDirection();
+    switch (snakeDirection) {
+      case "right": {
+        const nextPosition = headPosition + 1;
+        if (nextPosition % width == 0) throw Error("The snake hit the wall");
+        if (snakePositions.slice(1).includes(nextPosition))
+          throw Error("The snake bit itself");
+        return nextPosition;
+      }
+      case "left": {
+        const nextPosition = headPosition - 1;
+        if (nextPosition % width == width - 1 || nextPosition < 0)
+          throw Error("The snake hit the wall");
+        if (snakePositions.slice(1).includes(nextPosition))
+          throw Error("The snake bit itself");
+        return nextPosition;
+      }
+      case "down": {
+        const nextPosition = headPosition + width;
+        if (nextPosition > width * height - 1)
+          throw Error("The snake hit the wall");
+        if (snakePositions.slice(1).includes(nextPosition))
+          throw Error("The snake bit itself");
+        return nextPosition;
+      }
+      case "up": {
+        const nextPosition = headPosition - width;
+        if (nextPosition < 0) throw Error("The snake hit the wall");
+        if (snakePositions.slice(1).includes(nextPosition))
+          throw Error("The snake bit itself");
+        return nextPosition;
+      }
+    }
+  }
+
+  function headDirection() {
+    const head = snakePositions[snakePositions.length - 1];
+    const neck = snakePositions[snakePositions.length - 2];
+    return getDirection(head, neck);
+  }
+
+  function tailDirection() {
+    const tail1 = snakePositions[0];
+    const tail2 = snakePositions[1];
+    return getDirection(tail1, tail2);
+  }
+
+  function getDirection(first, second) {
+    if (first - 1 == second) return "right";
+    if (first + 1 == second) return "left";
+    if (first - width == second) return "down";
+    if (first + width == second) return "up";
+    throw Error("the two tile are not connected");
+  }
+
+  function addNewApple() {
+    let newPosition;
+    do {
+      newPosition = Math.floor(Math.random() * width * height);
+    } while (snakePositions.includes(newPosition));
+
+    setTile(tiles[newPosition], {
+      "background-color": color,
+      "border-radius": "50%"
+    });
+
+    applePosition = newPosition;
+  }
+
+  function setTile(element, overrides = {}) {
+    const defaults = {
+      width: "100%",
+      height: "100%",
+      top: "auto",
+      right: "auto",
+      bottom: "auto",
+      left: "auto",
+      "background-color": "transparent"
+    };
+    const cssProperties = { ...defaults, ...overrides };
+    element.style.cssText = Object.entries(cssProperties)
+      .map(([key, value]) => `${key}: ${value};`)
+      .join(" ");
+  }
+});
+	  </script>
+</body>
+</html>
